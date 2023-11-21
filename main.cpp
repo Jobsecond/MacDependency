@@ -202,7 +202,8 @@ std::vector<MachOInfo> parseMachO(const std::string &filename) {
             // Fat binary (universal binary), 32-bit header
             constexpr bool is64BitFatArch = false;
             parseFatHeaderAndUpdateResult<is64BitFatArch>(file, result);
-        }
+        } // cases for fat binaries
+            break;
         case FAT_MAGIC_64:
         case FAT_CIGAM_64:
         {
@@ -228,6 +229,7 @@ std::vector<MachOInfo> parseMachO(const std::string &filename) {
             constexpr bool is64BitMachHeader = true;
             parseMachHeaderAndUpdateResult<is64BitMachHeader>(file, 0, result);
         } // cases for thin binaries
+            break;
         default:
             std::cout << "File " << filename << " is not a Mach-O file\n";
             return {};
