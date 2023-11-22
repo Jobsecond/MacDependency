@@ -109,18 +109,43 @@ bool parseMachHeaderAndUpdateResult(std::ifstream &file,
         uint32_t cmd = lc->cmd;
         uint32_t cmdsize = lc->cmdsize;
 
-        if (cmd == LC_LOAD_DYLIB || cmd == LC_LOAD_WEAK_DYLIB) {
-            auto cmd_struct = reinterpret_cast<struct dylib_command *>(ptr);
-            auto name = (char *)cmd_struct + cmd_struct->dylib.name.offset;
-            machOInfo.deps.emplace_back(name);
-        } else if (cmd == LC_RPATH) {
-            auto cmd_struct = reinterpret_cast<struct rpath_command *>(ptr);
-            auto rpath = (char *)cmd_struct + cmd_struct->path.offset;
-            machOInfo.rpaths.emplace_back(rpath);
-        } else if (cmd == LC_ID_DYLIB) {
-            auto cmd_struct = reinterpret_cast<struct dylib_command *>(ptr);
-            auto name = (char *)cmd_struct + cmd_struct->dylib.name.offset;
-            machOInfo.dylib_id = name;
+        switch (cmd) {
+            case LC_LOAD_DYLIB:
+            case LC_LOAD_WEAK_DYLIB:
+            {
+                auto cmd_struct = reinterpret_cast<struct dylib_command *>(ptr);
+                if (arrIndex + cmd_struct->dylib.name.offset >= cmds.size()) {
+                    // Array boundary check
+                    break;
+                }
+                auto name = reinterpret_cast<char *>(ptr) + cmd_struct->dylib.name.offset;
+                machOInfo.deps.emplace_back(name);
+            }
+                break;
+            case LC_RPATH:
+            {
+                auto cmd_struct = reinterpret_cast<struct rpath_command *>(ptr);
+                if (arrIndex + cmd_struct->path.offset >= cmds.size()) {
+                    // Array boundary check
+                    break;
+                }
+                auto rpath = reinterpret_cast<char *>(ptr) + cmd_struct->path.offset;
+                machOInfo.rpaths.emplace_back(rpath);
+            }
+                break;
+            case LC_ID_DYLIB:
+            {
+                auto cmd_struct = reinterpret_cast<struct dylib_command *>(ptr);
+                if (arrIndex + cmd_struct->dylib.name.offset >= cmds.size()) {
+                    // Array boundary check
+                    break;
+                }
+                auto name = reinterpret_cast<char *>(ptr) + cmd_struct->dylib.name.offset;
+                machOInfo.dylib_id = name;
+            }
+                break;
+            default:
+                break;
         }
 
         arrIndex += cmdsize;
@@ -191,7 +216,7 @@ std::vector<MachOInfo> parseMachO(const std::string &filename) {
     // Read file header to determine if it's a Mach-O file
     uint32_t magic;
     file.read(reinterpret_cast<char*>(&magic), sizeof(uint32_t));
-    file.seekg(0, std::ios::beg);
+    file.seekg(0);
 
     // Check the magic number
     switch (magic) {
